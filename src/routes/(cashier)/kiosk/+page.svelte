@@ -1,6 +1,15 @@
 <script lang="ts">
-  type Product = { id: string; name: string; price: number; image: string; description?: string };
-  type CartItem = Product & { qty: number };
+  import { cart } from '$lib/stores/cart';
+  import type { CartItem } from '$lib/stores/cart';
+  import { derived } from 'svelte/store';
+
+  type Product = {
+    id: string;
+    name: string;
+    price: number;
+    image: string;
+    description?: string;
+  };
 
   const products: Product[] = [
     { id: '1', name: 'Watercolor Set', price: 499, image: '/images/watercolor.jpg', description: 'Portable watercolor set for beginners and pros.' },
@@ -20,38 +29,37 @@
     { id: '15', name: 'Pastel Colors', price: 600, image: '/images/pastels.jpg', description: 'Soft pastels for blending and shading.' }
   ];
 
-  let cart: CartItem[] = [];
-
-  // Track current page for highlighting
   type Page = 'home' | 'checkout' | 'confirm' | 'logout';
   let currentPage: Page = 'home';
 
-  // Search query
   let searchQuery = '';
-
-  $: filteredProducts = products.filter(p =>
+  $: filteredProducts = products.filter((p: Product) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Quantity map per product
   let quantities: Record<string, number> = {};
 
   function addToCartWithQuantity(product: Product) {
     const qty = quantities[product.id] || 1;
-    const existing = cart.find(item => item.id === product.id);
-    if (existing) {
-      existing.qty += qty;
-    } else {
-      cart = [...cart, { ...product, qty }];
-    }
-    quantities[product.id] = 1; // reset
+    cart.update((items: CartItem[]) => {
+      const existing = items.find((i: CartItem) => i.id === product.id);
+      if (existing) {
+        existing.qty += qty;
+      } else {
+        items.push({ ...product, qty });
+      }
+      return [...items];
+    });
+    quantities[product.id] = 1;
   }
 
   function removeFromCart(id: string) {
-    cart = cart.filter(item => item.id !== id);
+    cart.update((items: CartItem[]) => items.filter((i: CartItem) => i.id !== id));
   }
 
-  $: total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const total = derived(cart, ($cart: CartItem[]) =>
+    $cart.reduce((sum: number, item: CartItem) => sum + item.price * item.qty, 0)
+  );
 </script>
 
 <div class="flex min-h-screen w-full">
@@ -70,36 +78,25 @@
     </div>
 
     <nav class="flex-1 px-4 space-y-4">
-      <a
-        href="/"
-        on:click={() => currentPage = 'home'}
+      <a href="/kiosk" on:click={() => currentPage = 'home'}
         class="w-full block px-4 py-3 rounded-xl shadow-md font-semibold transition flex items-center gap-2
                bg-white text-gray-900 hover:shadow-lg
                {currentPage === 'home' ? 'border-l-4 border-yellow-400 bg-yellow-100 text-blue-600 animate-slideIn' : ''}">
         🏠 Home
       </a>
-
-      <a
-        href="/kiosk/checkout"
-        on:click={() => currentPage = 'checkout'}
+      <a href="/kiosk/checkout" on:click={() => currentPage = 'checkout'}
         class="w-full block px-4 py-3 rounded-xl shadow-md font-semibold transition flex items-center gap-2
                bg-white text-gray-900 hover:shadow-lg
                {currentPage === 'checkout' ? 'border-l-4 border-yellow-400 bg-yellow-100 text-blue-600 animate-slideIn' : ''}">
         💳 Checkout
       </a>
-
-      <a
-        href="/kiosk/confirm"
-        on:click={() => currentPage = 'confirm'}
+      <a href="/kiosk/confirm" on:click={() => currentPage = 'confirm'}
         class="w-full block px-4 py-3 rounded-xl shadow-md font-semibold transition flex items-center gap-2
                bg-white text-gray-900 hover:shadow-lg
                {currentPage === 'confirm' ? 'border-l-4 border-yellow-400 bg-yellow-100 text-blue-600 animate-slideIn' : ''}">
         ✅ Confirm
       </a>
-
-      <a
-        href="/login"
-        on:click={() => currentPage = 'logout'}
+      <a href="/login" on:click={() => currentPage = 'logout'}
         class="w-full block px-4 py-3 rounded-xl shadow-md font-semibold transition flex items-center gap-2
                bg-white text-gray-900 hover:shadow-lg
                {currentPage === 'logout' ? 'border-l-4 border-yellow-400 bg-yellow-100 text-blue-600 animate-slideIn' : ''}">
@@ -108,7 +105,7 @@
     </nav>
   </aside>
 
-  <!-- Main Content + Cart on the right -->
+  <!-- Main Content + Cart -->
   <main class="flex-1 ml-64 bg-gradient-to-br from-pink-500 via-purple-600 to-indigo-700 p-8 min-h-screen overflow-y-auto flex gap-6">
     <!-- Products -->
     <div class="flex-1">
@@ -125,7 +122,7 @@
               <input type="number" min="1" bind:value={quantities[product.id]} class="w-16 border rounded px-2 py-1 text-center" placeholder="1" />
               <button class="bg-gradient-to-r from-pink-500 to-indigo-600 text-white font-semibold px-4 py-2 rounded-full 
                              hover:scale-105 active:scale-95 transition-transform duration-200 ease-in-out"
-                      on:click={() => addToCartWithQuantity(product)}>
+                                            on:click={() => addToCartWithQuantity(product)}>
                 Add
               </button>
             </div>
@@ -134,14 +131,14 @@
       </div>
     </div>
 
-    <!-- Cart Sidebar (sticky) -->
+    <!-- Cart Sidebar -->
     <div class="w-80 bg-white rounded-xl shadow-lg p-6 h-fit sticky top-8 self-start">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">🛒 Cart</h2>
-            {#if cart.length === 0}
+      {#if $cart.length === 0}
         <p class="text-gray-500 text-sm">No items yet.</p>
       {:else}
         <ul class="space-y-2">
-          {#each cart as item}
+          {#each $cart as item (item.id)}
             <li class="flex justify-between items-center border-b pb-2">
               <div>
                 <p class="font-medium">{item.name}</p>
@@ -156,10 +153,10 @@
           {/each}
         </ul>
         <div class="mt-4 border-t pt-2">
-          <p class="font-semibold">Total: ₱{total}</p>
+          <p class="font-semibold">Total: ₱{$total}</p>
         </div>
 
-        <!-- Checkout button inside cart -->
+        <!-- Checkout button -->
         <div class="mt-4">
           <a
             href="/kiosk/checkout"
@@ -179,11 +176,6 @@
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes bounceOnce {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
   }
 
   @keyframes slideIn {

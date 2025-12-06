@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import { page } from '$app/stores';
   import { derived } from 'svelte/store';
+  import type { ActionResult } from '@sveltejs/kit';
 
   export let data: {
     stores: {
@@ -18,6 +20,22 @@
 
   function logout() {
     window.location.href = '/login';
+  }
+
+  function handleEnhance(form: HTMLFormElement) {
+    return enhance<Record<string, unknown>, { success?: boolean; error?: string }>(
+      form,
+      async (
+        _input: Record<string, unknown>,
+        _action: { result: ActionResult<{ success?: boolean; error?: string }>; update: () => void },
+        result: ActionResult<{ success?: boolean; error?: string }>
+      ) => {
+        if (result?.type === 'success') {
+          status = result.data;
+          editing = null;
+        }
+      }
+    );
   }
 </script>
 
@@ -51,27 +69,27 @@
     <h1 class="text-2xl font-bold mb-6 text-white">🏬 Manage Stores</h1>
 
     <!-- Create store form -->
-    <form method="POST" action="?/create" class="bg-white rounded-xl shadow-lg p-6 mb-6 space-y-4 max-w-lg">
+    <form method="POST" action="?/create" use:handleEnhance class="bg-white rounded-xl shadow-lg p-6 mb-6 space-y-4 max-w-lg">
       <div>
         <label for="storeName" class="block text-sm font-medium">Store Name</label>
-        <input id="storeName" name="storeName" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-pink-500" />
+        <input id="storeName" name="storeName" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-pink-500" />
       </div>
       <div>
         <label for="address" class="block text-sm font-medium">Address</label>
-        <input id="address" name="address" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-purple-500" />
+        <input id="address" name="address" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-purple-500" />
       </div>
       <div>
         <label for="contactNo" class="block text-sm font-medium">Contact Number</label>
-        <input id="contactNo" name="contactNo" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500" />
+        <input id="contactNo" name="contactNo" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500" />
       </div>
       <button type="submit" class="bg-gradient-to-r from-pink-500 to-blue-500 text-white px-4 py-2 rounded hover:opacity-90 transition">
         Add Store
       </button>
       {#if status?.error}
-        <p class="text-red-600 text-sm">{status.error}</p>
+        <p class="text-red-600 text-sm mt-2">{status.error}</p>
       {/if}
       {#if status?.success}
-        <p class="text-green-600 text-sm">Action successful!</p>
+        <p class="text-green-600 text-sm mt-2">Store added successfully!</p>
       {/if}
     </form>
 
@@ -79,20 +97,18 @@
     <div class="bg-white rounded-xl shadow-lg p-6">
       <h2 class="text-lg font-semibold mb-4">Available Stores</h2>
       <ul class="divide-y">
-        {#each data.stores as s}
+        {#each data.stores as s, i (s.id)}
           <li class="py-3">
             {#if editing === s.id}
-              <!-- Edit form -->
-              <form method="POST" action="?/update" class="flex flex-wrap gap-2 items-center">
+              <form method="POST" action="?/update" use:handleEnhance class="flex flex-wrap gap-2 items-center">
                 <input type="hidden" name="id" value={s.id} />
-                <input name="storeName" value={s.storeName} class="border rounded px-2 py-1 focus:ring-2 focus:ring-pink-500" />
-                <input name="address" value={s.address} class="border rounded px-2 py-1 focus:ring-2 focus:ring-purple-500" />
-                <input name="contactNo" value={s.contactNo} class="border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500" />
+                <input name="storeName" value={s.storeName} required class="border rounded px-2 py-1 focus:ring-2 focus:ring-pink-500" />
+                <input name="address" value={s.address} required class="border rounded px-2 py-1 focus:ring-2 focus:ring-purple-500 w-64" />
+                <input name="contactNo" value={s.contactNo} required class="border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 w-40" />
                 <button type="submit" class="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600">Save</button>
                 <button type="button" on:click={() => editing = null} class="bg-gray-300 px-2 py-1 rounded">Cancel</button>
               </form>
             {:else}
-              <!-- Display store -->
               <div class="flex justify-between items-center">
                 <div>
                   <p class="font-medium">{s.storeName}</p>
@@ -101,13 +117,13 @@
                 </div>
                 <div class="flex gap-2">
                   <button type="button" on:click={() => editing = s.id}
-                    class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600">
+                    class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition">
                     Edit
                   </button>
-                  <form method="POST" action="?/delete" class="inline">
+                  <form method="POST" action="?/delete" use:handleEnhance class="inline">
                     <input type="hidden" name="id" value={s.id} />
                     <button type="submit"
-                      class="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
+                      class="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition">
                       Delete
                     </button>
                   </form>

@@ -4,8 +4,34 @@ import { store } from '$lib/server/db/schema';
 import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 
+// Hardcoded Balanga art supply stores (mock/demo data)
+const balangaStores = [
+  {
+    id: 'b1',
+    storeName: 'Balanga Art Depot',
+    address: 'Capitol Drive, Balanga City, Bataan',
+    contactNo: '0917-123-4567',
+    ownerId: 'kiosk-owner'
+  },
+  {
+    id: 'b2',
+    storeName: 'Creative Corner Balanga',
+    address: 'Enrique Garcia Ave, Balanga City',
+    contactNo: '0917-987-6543',
+    ownerId: 'kiosk-owner'
+  },
+  {
+    id: 'b3',
+    storeName: 'Color Palette Supplies',
+    address: 'Plaza Mayor de Balanga, Bataan',
+    contactNo: '0921-555-7890',
+    ownerId: 'kiosk-owner'
+  }
+];
+
 export const load: PageServerLoad = async () => {
-  const stores = await db.select().from(store).orderBy(store.storeName);
+  const dbStores = await db.select().from(store).orderBy(store.storeName);
+  const stores = [...dbStores, ...balangaStores];
   return { stores };
 };
 

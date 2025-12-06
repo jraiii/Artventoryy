@@ -3,6 +3,8 @@
   import { page } from '$app/stores';
   import { derived } from 'svelte/store';
   import type { ActionResult } from '@sveltejs/kit';
+  import { fade } from 'svelte/transition';
+  import { quintOut } from 'svelte/easing';
 
   export let data: {
     products: { id: string; productName: string; price: string; stockQty: number; categoryId: string; imageUrl?: string }[];
@@ -19,18 +21,38 @@
     window.location.href = '/login';
   }
 
+  // ✅ Fixed: typed parameters, matches SubmitFunction signature
   function handleEnhance(form: HTMLFormElement) {
-    return enhance(form, async (...args) => {
-      const result = args[1] as ActionResult;
+  return enhance(
+    form,
+    async (
+      _input: HTMLFormElement,
+      _action: { result: ActionResult; update: () => void },
+      result: ActionResult
+    ) => {
       if (result?.type === 'success') {
         status = result.data as typeof status;
         editing = null;
       }
-    });
-  }
+    }
+  );
+}
+
 
   function getCategoryName(id: string) {
     return data.categories.find((c) => c.id === id)?.name ?? 'Unknown';
+  }
+
+  function bounceIn(node: Element, { delay = 0, duration = 500 }) {
+    return {
+      delay,
+      duration,
+      easing: quintOut,
+      css: (t: number) => `
+        transform: scale(${0.8 + t * 0.2});
+        opacity: ${t};
+      `
+    };
   }
 </script>
 
@@ -43,18 +65,13 @@
     </div>
 
     <nav class="flex-1 space-y-2">
-      <a href="/dashboard" class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/dashboard'}>Dashboard</a>
-      <a href="/products" class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/products'}>Products</a>
-      <a href="/transactions" class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/transactions'}>Transactions</a>
-      <a href="/stores" class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/stores'}>Stores</a>
+      <a href="/dashboard" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/dashboard'}>Dashboard</a>
+      <a href="/products" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/products'}>Products</a>
+      <a href="/transactions" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/transactions'}>Transactions</a>
+      <a href="/stores" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/stores'}>Stores</a>
     </nav>
 
-    <button on:click={logout}
-      class="mt-8 px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white font-semibold">
+    <button on:click={logout} class="mt-8 px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white font-semibold">
       Logout
     </button>
   </aside>
@@ -68,19 +85,19 @@
       class="bg-white rounded-xl shadow-lg p-6 mb-6 space-y-4 max-w-lg">
       <div>
         <label for="productName" class="block text-sm font-medium">Product Name</label>
-        <input id="productName" name="productName" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-pink-500" />
+        <input id="productName" name="productName" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-pink-500" />
       </div>
       <div>
         <label for="price" class="block text-sm font-medium">Price</label>
-        <input id="price" name="price" type="number" step="0.01" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-purple-500" />
+        <input id="price" name="price" type="number" step="0.01" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-purple-500" />
       </div>
       <div>
         <label for="stockQty" class="block text-sm font-medium">Stock Quantity</label>
-        <input id="stockQty" name="stockQty" type="number" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500" />
+        <input id="stockQty" name="stockQty" type="number" min="0" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500" />
       </div>
       <div>
         <label for="categoryId" class="block text-sm font-medium">Category</label>
-        <select id="categoryId" name="categoryId" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-green-500">
+        <select id="categoryId" name="categoryId" required class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-green-500">
           {#each data.categories as c}
             <option value={c.id}>{c.name}</option>
           {/each}
@@ -88,17 +105,16 @@
       </div>
       <div>
         <label for="image" class="block text-sm font-medium">Product Image</label>
-        <input id="image" name="image" type="file" accept="image/*"
-          class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
+        <input id="image" name="image" type="file" accept="image/*" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-indigo-500" />
       </div>
       <button type="submit" class="bg-gradient-to-r from-pink-500 to-blue-500 text-white px-4 py-2 rounded hover:opacity-90 transition">
         Add Product
       </button>
       {#if status?.error}
-        <p class="text-red-600 text-sm">{status.error}</p>
+        <p class="text-red-600 text-sm mt-2">{status.error}</p>
       {/if}
       {#if status?.success}
-        <p class="text-green-600 text-sm">Action successful!</p>
+        <p class="text-green-600 text-sm mt-2">Product added successfully!</p>
       {/if}
     </form>
 
@@ -106,16 +122,15 @@
     <div class="bg-white rounded-xl shadow-lg p-6">
       <h2 class="text-lg font-semibold mb-4">Available Products</h2>
       <ul class="divide-y">
-        {#each data.products as p}
-          <li class="py-3">
+        {#each data.products as p, i (p.id)}
+          <li class="py-3" in:bounceIn={{ delay: i * 80 }} out:fade={{ duration: 200 }}>
             {#if editing === p.id}
-              <!-- Edit form -->
               <form method="POST" action="?/update" use:handleEnhance enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
                 <input type="hidden" name="id" value={p.id} />
-                <input name="productName" value={p.productName} class="border rounded px-2 py-1 focus:ring-2 focus:ring-pink-500" />
-                <input name="price" type="number" step="0.01" value={p.price} class="border rounded px-2 py-1 w-24 focus:ring-2 focus:ring-purple-500" />
-                <input name="stockQty" type="number" value={p.stockQty} class="border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-500" />
-                <select name="categoryId" class="border rounded px-2 py-1 focus:ring-2 focus:ring-green-500">
+                <input name="productName" value={p.productName} required class="border rounded px-2 py-1 focus:ring-2 focus:ring-pink-500" />
+                <input name="price" type="number" step="0.01" value={Number(p.price)} required class="border rounded px-2 py-1 w-24 focus:ring-2 focus:ring-purple-500" />
+                <input name="stockQty" type="number" min="0" value={p.stockQty} required class="border rounded px-2 py-1 w-20 focus:ring-2 focus:ring-blue-500" />
+                <select name="categoryId" required class="border rounded px-2 py-1 focus:ring-2 focus:ring-green-500">
                   {#each data.categories as c}
                     <option value={c.id} selected={c.id === p.categoryId}>{c.name}</option>
                   {/each}
@@ -125,7 +140,6 @@
                 <button type="button" on:click={() => editing = null} class="bg-gray-300 px-2 py-1 rounded">Cancel</button>
               </form>
             {:else}
-              <!-- Display product -->
               <div class="flex justify-between items-center">
                 <div class="flex items-center gap-4">
                   {#if p.imageUrl}
@@ -136,18 +150,18 @@
                   <div>
                     <p class="font-medium">{p.productName}</p>
                     <p class="text-sm text-gray-500">₱{p.price} — Stock: {p.stockQty}</p>
-                    <p class="text-xs text-gray-400">Category: {getCategoryName(p.categoryId)}</p>
+                                        <p class="text-xs text-gray-400">Category: {getCategoryName(p.categoryId)}</p>
                   </div>
                 </div>
                 <div class="flex gap-2">
                   <button type="button" on:click={() => editing = p.id}
-                    class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600">
+                    class="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition">
                     Edit
                   </button>
                   <form method="POST" action="?/delete" use:handleEnhance class="inline">
                     <input type="hidden" name="id" value={p.id} />
                     <button type="submit"
-                    class="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">
+                      class="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition">
                       Delete
                     </button>
                   </form>
@@ -160,3 +174,14 @@
     </div>
   </main>
 </div>
+
+<style>
+  @keyframes slideIn {
+    from { transform: translateX(-10px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  .animate-slideIn {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+</style>

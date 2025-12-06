@@ -6,12 +6,11 @@
 
   type Product = { id: string; name: string; price: string; description?: string; imageUrl?: string };
   type Store = { id: string; name: string };
+  type Transaction = { id: string; totalAmount: number; createdAt: Date };
 
-  export let data: { products: Product[]; stores: Store[]; transactions?: any[] };
+  export let data: { products: Product[]; stores: Store[]; transactions?: Transaction[] };
 
   let mobileMenuOpen = false;
-
-  // Track current path for active link highlighting
   const currentPath = derived(page, ($page) => $page.url.pathname);
 
   function logout() {
@@ -21,15 +20,24 @@
   let chartCanvas: HTMLCanvasElement;
 
   onMount(() => {
-    if (chartCanvas) {
+    if (chartCanvas && data.transactions && data.transactions.length > 0) {
+      const salesByDate = data.transactions.reduce((acc, txn) => {
+        const date = new Date(txn.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+        acc[date] = (acc[date] || 0) + txn.totalAmount;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const labels = Object.keys(salesByDate);
+      const values = Object.values(salesByDate);
+
       new Chart(chartCanvas, {
         type: 'line',
         data: {
-          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+          labels,
           datasets: [
             {
               label: 'Sales (₱)',
-              data: [12000, 15000, 10000, 18000, 22000, 17000], // sample data
+              data: values,
               borderColor: '#ec4899',
               backgroundColor: 'rgba(236,72,153,0.2)',
               tension: 0.3,
@@ -39,12 +47,8 @@
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { display: true }
-          },
-          scales: {
-            y: { beginAtZero: true }
-          }
+          plugins: { legend: { display: true } },
+          scales: { y: { beginAtZero: true } }
         }
       });
     }
@@ -60,25 +64,13 @@
     </div>
 
     <nav class="flex-1 space-y-2">
-      <a href="/dashboard"
-         class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/dashboard'}>Dashboard</a>
-      <a href="/products"
-         class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/products'}>Products</a>
-      <a href="/transactions"
-         class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/transactions'}>Transactions</a>
-      <a href="/stores"
-         class="block px-4 py-2 rounded transition hover:bg-pink-500"
-         class:bg-pink-500={$currentPath === '/stores'}>Stores</a>
+      <a href="/dashboard" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/dashboard'}>Dashboard</a>
+      <a href="/products" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/products'}>Products</a>
+      <a href="/transactions" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/transactions'}>Transactions</a>
+      <a href="/stores" class="block px-4 py-2 rounded transition hover:bg-pink-500" class:bg-pink-500={$currentPath === '/stores'}>Stores</a>
     </nav>
 
-    <!-- ✅ Logout button restored -->
-    <button on:click={logout}
-      class="mt-8 px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white font-semibold">
-      Logout
-    </button>
+    <button on:click={logout} class="mt-8 px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white font-semibold">Logout</button>
   </aside>
 
   <!-- Main content -->
@@ -95,14 +87,20 @@
       </div>
       <div class="bg-white rounded-xl shadow-lg p-6 text-center">
         <p class="text-gray-500">Sales</p>
-        <p class="text-2xl font-bold text-gray-800">--</p>
+        <p class="text-2xl font-bold text-gray-800">
+                    ₱{data.transactions?.reduce((sum, t) => sum + t.totalAmount, 0) ?? '--'}
+        </p>
       </div>
     </div>
 
     <!-- Sales Graph -->
     <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">Sales Tracking</h2>
-      <canvas bind:this={chartCanvas} class="w-full h-64"></canvas>
+      {#if data.transactions && data.transactions.length > 0}
+        <canvas bind:this={chartCanvas} class="w-full h-64"></canvas>
+      {:else}
+        <p class="text-center text-gray-500">No sales data available yet.</p>
+      {/if}
     </div>
 
     <!-- Products overview table -->
@@ -111,7 +109,10 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left border-b">
-            <th>Image</th><th>Name</th><th>Price</th><th>Description</th>
+            <th>Image</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Description</th>
           </tr>
         </thead>
         <tbody>
